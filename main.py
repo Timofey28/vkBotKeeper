@@ -13,6 +13,7 @@ import psycopg2
 import random
 import schedule
 from multiprocessing import Process
+import threading
 
 
 session = vk_api.VkApi(token=token)
@@ -273,7 +274,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
                 join_part += "ORDER BY x.ordering"
                 query = f"SELECT caption, photo_link FROM materials {join_part};"
                 curr.execute(query)
-                result = curr.fetchall()
+                result = combineMaterialsIntoGroups(curr.fetchall())
                 updateUserStatus(buddy_id, 'in_subject')
                 for i in range(len(result)):
                     if i == len(result) - 1:
@@ -303,7 +304,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
                 join_part += "ORDER BY x.ordering"
                 query = f"SELECT caption, photo_link FROM materials {join_part};"
                 curr.execute(query)
-                result = curr.fetchall()
+                result = combineMaterialsIntoGroups(curr.fetchall())
                 how_many_days = pickUpRightWordEnding((date.today() - previous_date).days, "день", "дня", "дней")
                 vk.messages.send(user_id=buddy_id, message=f"Материалы, сохраненные в прошлый раз, {how_many_days} назад ({no2_v_dow[previous_date.weekday()]} {previous_date.strftime('%d.%m.%y')})", random_id=0)
                 for i in range(len(result)):
@@ -343,7 +344,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
                 join_part += "ORDER BY x.ordering"
                 query = f"SELECT caption, photo_link FROM materials {join_part};"
                 curr.execute(query)
-                result = curr.fetchall()
+                result = combineMaterialsIntoGroups(curr.fetchall())
                 for i in range(len(result)):
                     if i == len(result) - 1 and unique_date == unique_dates[-1]:
                         vk.messages.send(user_id=buddy_id, message=result[i][0], attachment=result[i][1], random_id=0, keyboard=k_in_subject__createFor(current_subject_name))
@@ -382,7 +383,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
                 join_part += "ORDER BY x.ordering"
                 query = f"SELECT caption, photo_link FROM materials {join_part};"
                 curr.execute(query)
-                result = curr.fetchall()
+                result = combineMaterialsIntoGroups(curr.fetchall())
                 vk.messages.send(user_id=buddy_id, message=f"Материалы, сохраненные {'неделю ' if msg == 'Неделю назад' else 'две недели '}назад ({no2_v_dow[adding_date.weekday()]} {adding_date.strftime('%d.%m.%y')}) 👇", random_id=0)
                 for i in range(len(result)):
                     vk.messages.send(user_id=buddy_id, message=result[i][0], attachment=result[i][1], random_id=0)
@@ -535,7 +536,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
                 join_part += "ORDER BY x.ordering"
                 query = f"SELECT caption, photo_link FROM materials {join_part};"
                 curr.execute(query)
-                result = curr.fetchall()
+                result = combineMaterialsIntoGroups(curr.fetchall())
                 if how_many_days == "0 дней":
                     message_before_sending_materials = "Материалы, сохраненные сегодня 👇"
                 elif how_many_days == "1 день":
@@ -795,7 +796,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
                 join_part += "ORDER BY x.ordering"
                 query = f"SELECT caption, photo_link FROM materials {join_part};"
                 curr.execute(query)
-                result = curr.fetchall()
+                result = combineMaterialsIntoGroups(curr.fetchall())
                 for i in range(len(result)):
                     if i == len(result) - 1:
                         vk.messages.send(user_id=buddy_id, message=result[i][0], attachment=result[i][1], random_id=0, keyboard=k_in_subject__createFor(current_subject_name))
@@ -1417,7 +1418,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
             result = curr.fetchall()
             caption = result[0][0]
             photo_link = result[0][1]
-            if msg in {'-', '–', '—'} and not caption and not photo_link:
+            if msg in {'-', '–', '—'} and not caption and photo_link:
                 vk.messages.send(user_id=buddy_id, message="Нельзя удалить фотографию, потому что нет текста, в материале должно быть хотя бы что-то одно", random_id=0, keyboard=k_edit_specific_material)
                 return
             if msg == "..." and not photo_link and not photos:
@@ -1458,6 +1459,25 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
         with open("ErrorLog.txt", "a", encoding="utf-8") as file:
             file.write(f"Получен несуществующий статус\n\n")
         exit(-1)
+
+
+def combineMaterialsIntoGroups(materials: tuple):
+    combinedMaterials = []
+    photoGroup = ''
+    for material in materials:
+        if material[0] == '':
+            if photoGroup:
+                photoGroup += f",{material[1]}"
+            else:
+                photoGroup = material[1]
+        else:
+            if photoGroup:
+                combinedMaterials.append(['', photoGroup])
+                photoGroup = ''
+            combinedMaterials.append(material)
+    if photoGroup:
+        combinedMaterials.append(['', photoGroup])
+    return tuple(combinedMaterials)
 
 
 def makeListOfDates_intoInlineKb(buddy_id, db_id, subject_user_is_in_rn, deletion_time__value, next_status, final_phrase):
@@ -1563,7 +1583,7 @@ def deletePhotosPermanently():
             days_left = "удален"
             ids_toDelete_fromDB.append(material_id)
             photos_toDelete_fromVk.append(photo_link)
-        elif days_left == 0: days_left = "< 1 дня"
+        elif days_left == 0: days_left = "<1 дня"
         else: days_left = pickUpRightWordEnding(days_left, "день", "дня", "дней")
         file.write(f"Идентификатор материала: {material_id}")
         file.write(f"\nДо удаления навсегда: {days_left}")
@@ -1614,7 +1634,7 @@ if __name__ == '__main__':
                         if event.attachments[f"attach{ii}_type"] == 'photo':
                             anyPhotos = True
                             break
-                    process(event.user_id, event.text.replace('&quot;', '"'), anyPhotos, stickerId)
+                    threading.Thread(process(event.user_id, event.text.replace('&quot;', '"'), anyPhotos, stickerId), daemon=True).start()
         except requests.exceptions.ConnectionError as ex:
             logg_message = f"Error: {str(ex)}\n{datetime.now().strftime('%d.%m.%Y, %H:%M:%S')}\n\n"
             with open("ErrorLog.txt", "a", encoding="utf-8") as f:
