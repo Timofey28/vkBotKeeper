@@ -1,0 +1,46 @@
+
+users {
+	id serial pk increments
+	name varchar(50)
+	surname varchar(50) null
+	sex varchar(6)
+	profile_link varchar
+	vk_id integer unique
+	status varchar(50)
+	subject_user_is_in_rn integer
+	current_subject_name varchar
+}
+
+subjects {
+	id serial pk
+	name varchar
+	user_id integer
+}
+
+intermediate_information {
+	user_id integer
+	subject_name varchar
+	date_of_lecture date
+	material_id integer
+	materials_order array
+}
+
+materials {
+	id serial pk increments
+	user_id integer *> users.id
+	subject_id integer *> subjects.id
+	photo_link varchar
+	caption text
+	date_of_lecture date
+	adding_time timestamp
+	deletion_time timestamp
+}
+
+showing_orders {
+	id serial
+	user_id integer
+	subject_id integer
+	date_of_lecture date
+	showing_order array
+}
+

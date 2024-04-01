@@ -456,7 +456,7 @@ def process(buddy_id, msg, any_photos, sticker_id=None):
             subject = curr.fetchall()
             assert(len(subject) == 1)
             subject_name = subject[0][0]
-            query = f"DELETE FROM intermediate_information WHERE user_id = {buddy_id}"
+            query = f"DELETE FROM intermediate_information WHERE user_id = {buddy_id};"
             curr.execute(query)
 
             query = f"SELECT id FROM subjects WHERE user_id = {buddy_id} AND name = '{subject_name}';"
