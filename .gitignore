@@ -1,0 +1,10 @@
+# Creds
+data.py
+
+# Service
+upload_files_to_server.py
+upload_files_to_server.bat
+
+# IDE & Cache
+.idea/
+__pycache__/

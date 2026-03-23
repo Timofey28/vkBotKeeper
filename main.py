@@ -14,6 +14,11 @@ import random
 import schedule
 from multiprocessing import Process
 import threading
+import os
+
+if os.name == 'posix':
+    from setproctitle import setproctitle
+    setproctitle('vk-keeper-bot')
 
 
 session = vk_api.VkApi(token=token)
